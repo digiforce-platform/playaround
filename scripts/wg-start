@@ -1,0 +1,33 @@
+#!/bin/bash
+WG=$(echo "$VPNSEC" | base64 -d | gunzip -c)
+wg_configs=(${WG//\\n/ })
+WG_IP=${wg_configs[0]}
+WG_KEY=${wg_configs[1]}
+WG_SHARED=${wg_configs[2]}
+WG_PUB=${wg_configs[3]}
+WG_DNS=${wg_configs[4]}
+WG_ENDPOINT=${wg_configs[5]}
+WG_ALLOWED_IPS=${wg_configs[6]}
+# check if wireguard is not installed then install it
+if ! [ -x "$(command -v wg)" ]; then
+    sudo apt update -y
+    sudo apt install wireguard resolvconf -y
+    echo "Wireguard is installed"
+else
+    echo "Wireguard is already installed"
+fi
+
+# sudo check /etc/wireguard/wg0.conf is not exist then copy it
+if sudo [ ! -f "/etc/wireguard/wg0.conf" ]; then
+    echo "[Interface]
+Address = $WG_IP
+PrivateKey = $WG_KEY
+[Peer]
+PublicKey = $WG_PUB
+PresharedKey = $WG_SHARED
+Endpoint = $WG_ENDPOINT
+AllowedIPs = $WG_ALLOWED_IPS
+PersistentKeepalive = 25" | sudo tee /etc/wireguard/wg0.conf
+    sudo wg-quick up wg0
+    echo -e "nameserver $WG_DNS\nnameserver 1.1.1.1\nnameserver 8.8.8.8\n" | sudo tee /etc/resolv.conf
+fi
